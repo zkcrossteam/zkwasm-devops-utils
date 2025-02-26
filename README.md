@@ -28,6 +28,7 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    # Login to GitHub
    gh auth login
    ```
+**Note:** For steps 2-5 (adding configuration files, modifying Makefile, adding CI/CD workflow, and adding Dockerfile), please refer to the [Project Configuration Instructions](#project-configuration-instructions) section. You can simply copy all the necessary files from this repository to your zkWASM APP project.
 
 2. **Add Required Configuration Files**
    - In your repository, add the following files (Already provided in the repo):
@@ -282,3 +283,5 @@ To adapt this setup for your zkWASM project:
   # List GitHub secrets (note: values are not displayed for security reasons)
   gh secret list
   ```
+
+  
