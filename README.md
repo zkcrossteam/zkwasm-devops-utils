@@ -189,11 +189,19 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    cd YOUR_REPO
    ```
 
-3. **Create a Dedicated Namespace**
+3. **Create a Dedicated Namespace and Secrets**
    - Note: The namespace determines your service API URL, which will be in the format `https://rpc.<namespace>.zkwasm.ai`
    ```bash
    # Create a namespace for your project
    kubectl create namespace YOUR_NAMESPACE
+   
+   # Create Kubernetes secrets
+
+   kubectl create secret generic app-secrets \
+   --from-literal=USER_PRIVATE_ACCOUNT='private-key-for-the-namespace' \
+   --from-literal=SETTLER_PRIVATE_ACCOUNT='settler-key-for-the-namespace' \
+   --from-literal=SERVER_ADMIN_KEY='admin-key-for-the-namespace' \
+   --namespace=YOUR_NAMESPACE
    ```
 
 4. **Deploy with Helm**

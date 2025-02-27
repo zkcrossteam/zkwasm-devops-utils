@@ -10,12 +10,9 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   DEPLOY: ${{ secrets.DEPLOY }}
-  USER_PRIVATE_ACCOUNT: ${{ secrets.USER_PRIVATE_ACCOUNT }}
   USER_ADDRESS: ${{ secrets.USER_ADDRESS }}
   SETTLEMENT_CONTRACT_ADDRESS: ${{ secrets.SETTLEMENT_CONTRACT_ADDRESS }}
   RPC_PROVIDER: ${{ secrets.RPC_PROVIDER }}
-  SETTLER_PRIVATE_ACCOUNT: ${{ secrets.SETTLER_PRIVATE_ACCOUNT }}
-  SERVER_ADMIN_KEY: ${{ secrets.SERVER_ADMIN_KEY }}
   PORT: ${{ secrets.PORT }}
   AUTO_SUBMIT: ${{ secrets.AUTO_SUBMIT }}
 
@@ -63,12 +60,9 @@ jobs:
         uses: docker/build-push-action@v5
         env:
           DEPLOY: ${{ secrets.DEPLOY }}
-          USER_PRIVATE_ACCOUNT: ${{ secrets.USER_PRIVATE_ACCOUNT }}
           USER_ADDRESS: ${{ secrets.USER_ADDRESS }}
           SETTLEMENT_CONTRACT_ADDRESS: ${{ secrets.SETTLEMENT_CONTRACT_ADDRESS }}
           RPC_PROVIDER: ${{ secrets.RPC_PROVIDER }}
-          SETTLER_PRIVATE_ACCOUNT: ${{ secrets.SETTLER_PRIVATE_ACCOUNT }}
-          SERVER_ADMIN_KEY: ${{ secrets.SERVER_ADMIN_KEY }}
           PORT: ${{ secrets.PORT }}
           AUTO_SUBMIT: ${{ secrets.AUTO_SUBMIT }}
         with:
@@ -79,12 +73,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             DEPLOY=${{ secrets.DEPLOY }}
-            USER_PRIVATE_ACCOUNT=${{ secrets.USER_PRIVATE_ACCOUNT }}
             USER_ADDRESS=${{ secrets.USER_ADDRESS }}
             SETTLEMENT_CONTRACT_ADDRESS=${{ secrets.SETTLEMENT_CONTRACT_ADDRESS }}
             RPC_PROVIDER=${{ secrets.RPC_PROVIDER }}
-            SETTLER_PRIVATE_ACCOUNT=${{ secrets.SETTLER_PRIVATE_ACCOUNT }}
-            SERVER_ADMIN_KEY=${{ secrets.SERVER_ADMIN_KEY }}
             PORT=${{ secrets.PORT }}
             AUTO_SUBMIT=${{ secrets.AUTO_SUBMIT }}
           no-cache: true

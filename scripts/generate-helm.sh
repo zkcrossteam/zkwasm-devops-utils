@@ -157,6 +157,21 @@ spec:
           value: "{{ .Values.config.redis.port }}"
         - name: MERKLE_SERVER
           value: http://{{ include "${CHART_NAME}.fullname" . }}-merkle:{{ .Values.config.merkle.port }}
+        - name: USER_PRIVATE_ACCOUNT
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: USER_PRIVATE_ACCOUNT
+        - name: SETTLER_PRIVATE_ACCOUNT
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: SETTLER_PRIVATE_ACCOUNT
+        - name: SERVER_ADMIN_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: SERVER_ADMIN_KEY
         ports:
         - containerPort: 3000
           name: http
