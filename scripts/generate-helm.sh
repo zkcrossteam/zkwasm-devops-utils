@@ -56,6 +56,9 @@ if [[ $REPO_URL == *"github.com"* ]]; then
     # HTTPS 格式: https://github.com/username/repo.git
     REPO_OWNER=$(echo $REPO_URL | sed -E 's/.*github.com\/([^\/]+).*/\1/')
   fi
+  
+  # 转换为小写
+  REPO_OWNER=$(echo $REPO_OWNER | tr '[:upper:]' '[:lower:]')
 else
   # 如果不是 GitHub 仓库，使用默认值
   REPO_OWNER="jupiterxiaoxiaoyu"
