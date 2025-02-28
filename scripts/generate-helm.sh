@@ -35,6 +35,8 @@ metadata:
   name: {{ include "${CHART_NAME}.fullname" . }}-mongodb-pvc
   labels:
     {{- include "${CHART_NAME}.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   accessModes:
     - ReadWriteOnce
@@ -385,6 +387,8 @@ metadata:
   name: {{ include "${CHART_NAME}.fullname" . }}-mongodb-pvc
   labels:
     {{- include "${CHART_NAME}.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   accessModes:
     - ReadWriteOnce
