@@ -45,13 +45,32 @@ spec:
 {{- end }}
 EOL
 
+# 获取远程仓库信息
+REPO_URL=$(git config --get remote.origin.url)
+if [[ $REPO_URL == *"github.com"* ]]; then
+  # 从 GitHub URL 提取用户名/组织名
+  if [[ $REPO_URL == *":"* ]]; then
+    # SSH 格式: git@github.com:username/repo.git
+    REPO_OWNER=$(echo $REPO_URL | sed -E 's/.*:([^\/]+)\/[^\/]+.*/\1/')
+  else
+    # HTTPS 格式: https://github.com/username/repo.git
+    REPO_OWNER=$(echo $REPO_URL | sed -E 's/.*github.com\/([^\/]+).*/\1/')
+  fi
+else
+  # 如果不是 GitHub 仓库，使用默认值
+  REPO_OWNER="jupiterxiaoxiaoyu"
+  echo "Warning: Not a GitHub repository or couldn't determine owner. Using default: $REPO_OWNER"
+fi
+
+echo "Using repository owner: $REPO_OWNER"
+
 # 生成新的 values.yaml
 cat > ${CHART_PATH}/values.yaml << EOL
 # Default values for ${CHART_NAME}
 replicaCount: 1
 
 image:
-  repository: ghcr.io/jupiterxiaoxiaoyu/${CHART_NAME}
+  repository: ghcr.io/${REPO_OWNER}/${CHART_NAME}
   pullPolicy: IfNotPresent
   tag: "latest"  # 可以是 latest 或 MD5 值
 
