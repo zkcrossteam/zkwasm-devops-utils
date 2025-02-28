@@ -13,45 +13,20 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
 
 ### Local Setup
 
-1. **Install and Configure GitHub CLI**
-   ```bash
-   # Install GitHub CLI based on your OS
-   # macOS
-   brew install gh
-   
-   # Ubuntu/Debian
-   curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-   sudo apt update
-   sudo apt install gh -y
-   
-   # Login to GitHub
-   gh auth login
-   ```
-**Note:** For steps 2-5 (adding configuration files, modifying Makefile, adding CI/CD workflow, and adding Dockerfile), please refer to the [Project Configuration Instructions](#project-configuration-instructions) section. You can simply copy all the necessary files from this repository to your zkWASM APP project.
+**Note:** For steps 1-4 (adding configuration files, modifying Makefile, adding CI/CD workflow, and adding Dockerfile), please refer to the [Project Configuration Instructions](#project-configuration-instructions) section. You can simply copy all the necessary files from this repository to your zkWASM APP project.
 
-2. **Add Required Configuration Files**
+1. **Add Required Configuration Files**
    - In your repository, add the following files (Already provided in the repo):
      - **Helm Chart Generation Script**
        - A script to generate Helm charts with these important parameters:
          - `CHART_NAME`: Set to your GitHub repo name (e.g., helloworld-rollup)
          - `ALLOWED_ORIGINS`: Configure CORS settings with comma-separated domain names
-       ```bash
-       # Edit the Helm chart generation script
-       nano scripts/generate-helm.sh
-       
-       # Make it executable
-       chmod +x scripts/generate-helm.sh
-       ```
-     - **GitHub Secret Configuration Script**
-       - A script to set up necessary GitHub secrets for CI/CD.
-       ```bash
-       # Edit the GitHub secret configuration script
-       nano scripts/setup-secrets.sh
-       
-       # Make it executable
-       chmod +x scripts/setup-secrets.sh
-       ```
+         - `DEPLOY_VALUE`: Set to `true` (default) to enable task submission
+         - `REMOTE_VALUE`: Set to `true` (default) for remote synchronization
+         - `AUTO_SUBMIT_VALUE`: Configure auto submission (optional)
+         - `IMAGE_VALUE`: MD5 hash of your WASM file, will be automatically updated by the Makefile
+         - Please leave the parameters as "" if you don't want to set them to "true"
+
      - **Environment Variables**
        - Add a `.env` file to configure essential environment variables
        ```bash
@@ -59,37 +34,42 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
        nano .env
        
        # Example .env content:
-       # DEPLOY=true
-       # USER_ADDRESS=0x...
-       # SETTLEMENT_CONTRACT_ADDRESS=0x...
-       # RPC_PROVIDER=https://...
-       # AUTO_SUBMIT=true
+       # SERVER_ADMIN_KEY=123
        ```
 
-3. **Modify the Makefile**
+2. **Modify the Makefile**
    - Update your Makefile to include (Already provided in the repo):
-     - A build section that runs the Helm chart generation script and prints MD5 hashes
-     - An env command to configure GitHub secrets using `make env`
+     - A build section that generates WASM files, calculates MD5 hashes, and copies artifacts to the build-artifacts directory
+     - Automatic updating of the `IMAGE_VALUE` in the Helm chart generation script
    ```bash
    # Edit the Makefile
    nano Makefile
    
-   # Example build section to add:
+   # Example build section:
    # build: ./src/admin.pubkey ./ts/src/service.js
    #   wasm-pack build --release --out-name application --out-dir pkg
    #   wasm-opt -Oz -o $(INSTALL_DIR)/application_bg.wasm pkg/application_bg.wasm
    #   cp pkg/application_bg.wasm $(INSTALL_DIR)/application_bg.wasm
    #   cd $(RUNNING_DIR) && npx tsc && cd -
-   #   chmod +x scripts/generate-helm.sh
-   #   ./scripts/generate-helm.sh
    #   echo "MD5:"
-   #   md5sum $(INSTALL_DIR)/application_bg.wasm | awk '{print $$1}'
+   #   # Calculate MD5 and convert to uppercase
+   #   $(eval MD5_VALUE := $(shell md5sum $(INSTALL_DIR)/application_bg.wasm | awk '{print $$1}' | tr 'a-z' 'A-Z'))
+   #   echo "Calculated MD5: $(MD5_VALUE)"
+   #   # Create build artifacts directory
+   #   mkdir -p $(BUILD_ARTIFACTS_DIR)/application
+   #   # Copy necessary WASM files to build artifacts directory
+   #   cp $(INSTALL_DIR)/application_bg.wasm $(BUILD_ARTIFACTS_DIR)/application/
+   #   cp $(INSTALL_DIR)/application_bg.wasm.d.ts $(BUILD_ARTIFACTS_DIR)/application/
+   #   # Record MD5 to file
+   #   echo "$(MD5_VALUE)" > $(BUILD_ARTIFACTS_DIR)/wasm.md5
+   #   # Update IMAGE_VALUE in generate-helm.sh
+   #   sed -i 's/^IMAGE_VALUE=.*$$/IMAGE_VALUE="$(MD5_VALUE)"/' scripts/generate-helm.sh
    ```
 
-4. **Add CI/CD Workflow**
+3. **Add CI/CD Workflow**
    - Add a GitHub Actions workflow file at `.github/workflows/ci-cd.yml` (Already provided in the repo):
      - Configure which branches and tags trigger the build process
-     - Set up the build, test, and deployment steps
+     - Set up the build and deployment steps using pre-built WASM files
    ```bash
    # Create the workflows directory if it doesn't exist
    mkdir -p .github/workflows
@@ -98,14 +78,14 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    nano .github/workflows/ci-cd.yml
    ```
 
-5. **Add Dockerfile for CI/CD**
+4. **Add Dockerfile for CI/CD**
    - Add a Dockerfile (Already provided in the repo) to build your project image as part of the CI/CD pipeline.
    ```bash
    # Edit the Dockerfile for CI/CD
    nano Dockerfile.ci
    ```
 
-6. **Build TypeScript Components**
+5. **Build TypeScript Components and WASM Files Locally**
    ```bash
    # Navigate to the TypeScript directory
    cd ts
@@ -118,26 +98,15 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    
    # Return to the project root
    cd ..
-   ```
-
-7. **Configure GitHub Secrets (if needed)**
-   - If your project requires environment variables (e.g., `DEPLOY=true`, admin keys)
-   - Note: You may need to log in first and ensure you have repository secret permissions.
-   ```bash
-   # Configure GitHub secrets from your .env file
-   make env
    
-   # Alternatively, run the setup-secrets script directly
-   ./scripts/setup-secrets.sh
-   ```
-
-8. **Build the Project**
-   ```bash
-   # Build the project
+   # Build the WASM files, generate artifacts, and update Helm charts
    make build
+   
+   # Verify the generated Helm chart
+   ls -la helm-charts/
    ```
 
-9. **Test the Publish Script**
+6. **Test the Publish Script**
    - Test the publish script and fix any issues. Sometimes there might be errors when running without the `-n` flag.
    - If needed, modify `ts/publish.sh`.
    ```bash
@@ -151,18 +120,18 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    nano ts/publish.sh
    ```
 
-10. **Push to GitHub**
-    - Ensure your GitHub repository has Actions enabled.
-    ```bash
-    # Add all files to git
-    git add .
-    
-    # Commit changes
-    git commit -m "Configure DevOps setup for zkWASM project"
-    
-    # Push to GitHub
-    git push origin main
-    ```
+7. **Push to GitHub**
+   - Ensure your GitHub repository has Actions enabled.
+   ```bash
+   # Add all files to git
+   git add .
+   
+   # Commit changes
+   git commit -m "Configure DevOps setup for zkWASM project"
+   
+   # Push to GitHub
+   git push origin main
+   ```
 
 ### Kubernetes Deployment
 
@@ -195,7 +164,6 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    kubectl create namespace YOUR_NAMESPACE
    
    # Create Kubernetes secrets
-
    kubectl create secret generic app-secrets \
    --from-literal=SETTLER_PRIVATE_ACCOUNT='settler-key-for-the-namespace' \
    --from-literal=SERVER_ADMIN_KEY='admin-key-for-the-namespace' \
@@ -246,6 +214,14 @@ To adapt this setup for your zkWASM project:
   
   # Configure ALLOWED_ORIGINS for CORS settings
   # Example: ALLOWED_ORIGINS="https://example.com,https://app.example.com"
+  
+  # Set deployment options
+  # DEPLOY_VALUE="true"
+  # REMOTE_VALUE="true"
+  # AUTO_SUBMIT_VALUE=""
+  
+  # The IMAGE_VALUE will be automatically updated by the Makefile
+  # when you run 'make build'
   ```
 - Update the `.env` file as needed for your project
   ```bash
@@ -284,10 +260,10 @@ To adapt this setup for your zkWASM project:
   # Check pod logs
   kubectl logs POD_NAME -n YOUR_NAMESPACE
   ```
-- Ensure all required secrets are properly configured in your GitHub repository
+- Ensure all required secrets are properly configured in your Kubernetes namespace
   ```bash
-  # List GitHub secrets (note: values are not displayed for security reasons)
-  gh secret list
+  # List Kubernetes secrets in your namespace
+  kubectl get secrets -n YOUR_NAMESPACE
   ```
 
   

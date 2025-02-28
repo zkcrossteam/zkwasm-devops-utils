@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ devops ]
+    branches: [ main ]
     tags: [ 'v*' ]
 
 env:
@@ -10,7 +10,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -75,15 +75,11 @@ jobs:
           echo "Image: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}"
           echo "Tags: ${{ steps.meta.outputs.tags }}"
           
-          echo "Generated .env file contents:"
-          cat .env
-          
-          MD5=$(grep -E "^IMAGE=" .env | cut -d '=' -f2 | tr -d '"' || echo "")
-          if [ -n "$MD5" ]; then
-            echo "WASM MD5: $MD5"
-            echo "This MD5 can be used for Kubernetes deployment"
+          echo "Using pre-built WASM files from build-artifacts directory"
+          if [ -f build-artifacts/wasm.md5 ]; then
+            echo "WASM MD5 from build-artifacts: $(cat build-artifacts/wasm.md5)"
           else
-            echo "Warning: MD5 value not found in .env file"
+            echo "Warning: build-artifacts/wasm.md5 file not found"
           fi
 
       - name: Notify build result
