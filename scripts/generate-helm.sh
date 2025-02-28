@@ -157,11 +157,6 @@ spec:
           value: "{{ .Values.config.redis.port }}"
         - name: MERKLE_SERVER
           value: http://{{ include "${CHART_NAME}.fullname" . }}-merkle:{{ .Values.config.merkle.port }}
-        - name: USER_PRIVATE_ACCOUNT
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: USER_PRIVATE_ACCOUNT
         - name: SETTLER_PRIVATE_ACCOUNT
           valueFrom:
             secretKeyRef:

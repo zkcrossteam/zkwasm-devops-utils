@@ -63,7 +63,6 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
        # USER_ADDRESS=0x...
        # SETTLEMENT_CONTRACT_ADDRESS=0x...
        # RPC_PROVIDER=https://...
-       # PORT=3000
        # AUTO_SUBMIT=true
        ```
 
@@ -198,7 +197,6 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    # Create Kubernetes secrets
 
    kubectl create secret generic app-secrets \
-   --from-literal=USER_PRIVATE_ACCOUNT='private-key-for-the-namespace' \
    --from-literal=SETTLER_PRIVATE_ACCOUNT='settler-key-for-the-namespace' \
    --from-literal=SERVER_ADMIN_KEY='admin-key-for-the-namespace' \
    --namespace=YOUR_NAMESPACE

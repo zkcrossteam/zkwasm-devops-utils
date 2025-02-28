@@ -14,23 +14,14 @@ RUN rustup default nightly-2023-06-01 && \
 # 设置环境变量确保后续命令使用正确的版本
 ENV RUSTUP_TOOLCHAIN=nightly-2023-06-01
 
-# 添加构建参数
-ARG DEPLOY
-ARG USER_ADDRESS
-ARG SETTLEMENT_CONTRACT_ADDRESS
-ARG RPC_PROVIDER
-ARG PORT
-ARG AUTO_SUBMIT
+# 移除敏感构建参数
+# 只保留非敏感或构建时必要的参数
+ARG BUILD_MODE=production
 
 # 在构建阶段打印参数（构建日志中可见）
 RUN echo "Build arguments in builder stage:" && \
-    echo "DEPLOY=${DEPLOY}" && \
-    echo "USER_ADDRESS=${USER_ADDRESS}" && \
-    echo "SETTLEMENT_CONTRACT_ADDRESS=${SETTLEMENT_CONTRACT_ADDRESS}" && \
-    echo "RPC_PROVIDER=${RPC_PROVIDER}" && \
-    echo "PORT=${PORT}" && \
-    echo "AUTO_SUBMIT=${AUTO_SUBMIT}"
-    # 不打印敏感信息
+    echo "BUILD_MODE=${BUILD_MODE}"
+    # 不再打印敏感信息
 
 # Install build dependencies and Node.js 18
 RUN apt-get update && apt-get install -y \
@@ -80,7 +71,17 @@ RUN echo "check rust version" && \
     echo "check rust toolchain" && \
     rustup show && \
     make build && \
-    echo "IMAGE=$(md5sum ts/node_modules/zkwasm-ts-server/src/application/application_bg.wasm | awk '{print $1}' | tr 'a-z' 'A-Z')" > /app/.env
+    # 生成 MD5 并添加到 .env 文件
+    MD5=$(md5sum ts/node_modules/zkwasm-ts-server/src/application/application_bg.wasm | awk '{print $1}' | tr 'a-z' 'A-Z') && \
+    if grep -q "^IMAGE=" .env; then \
+      # 如果 IMAGE 已存在，则更新它
+      sed -i "s/^IMAGE=.*$/IMAGE=\"$MD5\"/" .env; \
+    else \
+      # 否则添加新的 IMAGE 行
+      echo "IMAGE=\"$MD5\"" >> .env; \
+    fi && \
+    echo "Updated .env with MD5: $MD5" && \
+    cat .env
 
 # Run publish script with retries
 RUN ls -la ts/ && \
@@ -122,36 +123,18 @@ RUN ls -la ts/ && \
 # Production stage
 FROM node:18-slim
 
-# 重新声明 ARG，这在多阶段构建中是必需的
-ARG DEPLOY
-ARG USER_ADDRESS
-ARG SETTLEMENT_CONTRACT_ADDRESS
-ARG RPC_PROVIDER
-ARG PORT
-ARG AUTO_SUBMIT
-
+# 不需要任何构建参数
+# 直接从构建阶段复制 .env 文件
 COPY --from=builder /app/.env /app/.env
 
-ENV DEPLOY="${DEPLOY}" \
-    USER_ADDRESS="${USER_ADDRESS}" \
-    SETTLEMENT_CONTRACT_ADDRESS="${SETTLEMENT_CONTRACT_ADDRESS}" \
-    RPC_PROVIDER="${RPC_PROVIDER}" \
-    PORT="${PORT}" \
-    AUTO_SUBMIT="${AUTO_SUBMIT}" 
+# 设置非敏感环境变量
+ENV NODE_ENV="production"
 
 # 添加调试信息
 RUN echo "Verifying environment variables:" && \
-    echo "DEPLOY=${DEPLOY}" && \
-    echo "USER_ADDRESS=${USER_ADDRESS}" && \
-    echo "PORT=${PORT}" && \
-    echo "AUTO_SUBMIT=${AUTO_SUBMIT}"
-
-# 从构建阶段复制环境变量文件
-COPY --from=builder /app/.env /app/.env
-
-RUN echo "check env" && \
-    cat /app/.env && \
-    echo "check env done"
+    echo "NODE_ENV=${NODE_ENV}" && \
+    echo ".env file contents:" && \
+    cat /app/.env
 
 WORKDIR /app
 
@@ -166,4 +149,5 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 USER appuser
 
 EXPOSE 3000
+# 应用将从 Kubernetes Secret 获取环境变量
 CMD ["node", "./ts/src/service.js"]
