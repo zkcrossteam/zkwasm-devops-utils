@@ -83,7 +83,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/${REPO_OWNER}/${CHART_NAME}
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: "latest"  # 可以是 latest 或 MD5 值
 
 # 添加 ingress 配置
