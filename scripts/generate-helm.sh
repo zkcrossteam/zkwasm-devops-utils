@@ -172,7 +172,7 @@ cat > ${CHART_PATH}/templates/deployment.yaml << EOL
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "${CHART_NAME}.fullname" . }}
+  name: {{ include "${CHART_NAME}.fullname" . }}-rpc
   labels:
     {{- include "${CHART_NAME}.labels" . | nindent 4 }}
 spec:
@@ -224,7 +224,7 @@ cat > ${CHART_PATH}/templates/service.yaml << EOL
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "${CHART_NAME}.fullname" . }}
+  name: {{ include "${CHART_NAME}.fullname" . }}-rpc
   labels:
     {{- include "${CHART_NAME}.labels" . | nindent 4 }}
 spec:
@@ -489,7 +489,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: {{ include "${CHART_NAME}.fullname" . }}
+            name: {{ include "${CHART_NAME}.fullname" . }}-rpc
             port:
               number: {{ .Values.service.port }}
 EOL
