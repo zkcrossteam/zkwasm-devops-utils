@@ -1,24 +1,21 @@
 #!/bin/bash
 
-# 设置变量
-CHART_NAME="holdit-devops"
-CHAIN_ID="11155111" # 默认为Sepolia测试网
-ALLOWED_ORIGINS="*" # 多个域名用逗号分隔
+# Environment Variables
+CHART_NAME="zkwasm-automata"
+CHAIN_ID="11155111" # Default to Sepolia testnet
+ALLOWED_ORIGINS="*" # Multiple domains separated by commas
 CHART_PATH="./helm-charts/${CHART_NAME}"
 DEPLOY_VALUE="true" 
 REMOTE_VALUE="true" 
-AUTO_SUBMIT_VALUE="" # 默认为空
-IMAGE_VALUE="CE37CF0DF6D52E3A6D4A0357123FBF39"
+AUTO_SUBMIT_VALUE="" # Default to empty
+IMAGE_VALUE="7CE57C1529F87BB130E3DCDD4E44E6DE" # MD5 value of the image, will be automatically filled in by the running the Makefile
 
 echo "Using IMAGE_VALUE: ${IMAGE_VALUE}"
 
-# 创建必要的目录
 mkdir -p ${CHART_PATH}/templates
 
-# 创建基础 chart（这会自动创建所有必要文件，包括 _helpers.tpl）
 helm create ${CHART_PATH}
 
-# 清理默认的 nginx 相关配置，但保留 _helpers.tpl
 rm -f ${CHART_PATH}/templates/deployment.yaml
 rm -f ${CHART_PATH}/templates/service.yaml
 rm -f ${CHART_PATH}/templates/serviceaccount.yaml
@@ -27,7 +24,6 @@ rm -f ${CHART_PATH}/templates/ingress.yaml
 rm -f ${CHART_PATH}/templates/NOTES.txt
 rm -f ${CHART_PATH}/values.yaml
 
-# 创建 PVC 模板
 cat > ${CHART_PATH}/templates/mongodb-pvc.yaml << EOL
 {{- if and .Values.config.mongodb.enabled .Values.config.mongodb.persistence.enabled }}
 apiVersion: v1
@@ -48,36 +44,26 @@ spec:
 {{- end }}
 EOL
 
-# 获取远程仓库信息
 REPO_URL=$(git config --get remote.origin.url)
 if [[ $REPO_URL == *"github.com"* ]]; then
-  # 从 GitHub URL 提取用户名/组织名
   if [[ $REPO_URL == *":"* ]]; then
-    # SSH 格式: git@github.com:username/repo.git
     REPO_OWNER=$(echo $REPO_URL | sed -E 's/.*:([^\/]+)\/[^\/]+.*/\1/')
   else
-    # HTTPS 格式: https://github.com/username/repo.git
     REPO_OWNER=$(echo $REPO_URL | sed -E 's/.*github\.com\/([^\/]+).*/\1/')
   fi
   
-  # 确保只提取用户名部分，移除任何 URL 前缀
   REPO_OWNER=$(echo $REPO_OWNER | sed 's/https:\/\///g' | sed 's/http:\/\///g')
   
-  # 确保只提取用户名部分，移除 github.com 和后面的路径
   REPO_OWNER=$(echo $REPO_OWNER | sed 's/github\.com\///g' | sed 's/\/.*//g')
   
-  # 转换为小写
   REPO_OWNER=$(echo $REPO_OWNER | tr '[:upper:]' '[:lower:]')
 else
-  # 如果不是 GitHub 仓库，使用默认值
   REPO_OWNER="jupiterxiaoxiaoyu"
   echo "Warning: Not a GitHub repository or couldn't determine owner. Using default: $REPO_OWNER"
 fi
 
-# 打印提取的用户名，用于调试
 echo "Using repository owner: $REPO_OWNER"
 
-# 生成新的 values.yaml
 cat > ${CHART_PATH}/values.yaml << EOL
 # Default values for ${CHART_NAME}
 replicaCount: 1
@@ -85,22 +71,18 @@ replicaCount: 1
 image:
   repository: ghcr.io/${REPO_OWNER}/${CHART_NAME}
   pullPolicy: Always
-  tag: "latest"  # 可以是 latest 或 MD5 值
+  tag: "latest"  # Could be latest or MD5 value
 
-# 添加 ingress 配置
 ingress:
   enabled: true
   annotations:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt-prod
-  # TLS 配置
   tls:
     enabled: true
-  # 域名配置
   domain:
     base: "zkwasm.ai"
-    prefix: "rpc"  # 生成 rpc.namespace.zkwasm.ai
-  # CORS 配置
+    prefix: "rpc"  # Generate rpc.namespace.zkwasm.ai
   cors:
     enabled: true
     allowOrigins: "${ALLOWED_ORIGINS}"
@@ -109,7 +91,6 @@ ingress:
     allowCredentials: "true"
     maxAge: "1728000"
 
-# 应用配置
 config:
   app:
     deploy: "${DEPLOY_VALUE}"
@@ -168,7 +149,6 @@ tolerations: []
 affinity: {}
 EOL
 
-# 生成 deployment.yaml
 cat > ${CHART_PATH}/templates/deployment.yaml << EOL
 apiVersion: apps/v1
 kind: Deployment
@@ -230,7 +210,6 @@ spec:
           {{- toYaml .Values.resources | nindent 10 }}
 EOL
 
-# 生成 service.yaml
 cat > ${CHART_PATH}/templates/service.yaml << EOL
 apiVersion: v1
 kind: Service
@@ -249,7 +228,6 @@ spec:
     {{- include "${CHART_NAME}.selectorLabels" . | nindent 4 }}
 EOL
 
-# 生成 NOTES.txt
 cat > ${CHART_PATH}/templates/NOTES.txt << EOL
 1. Get the application URL by running these commands:
 {{- if contains "NodePort" .Values.service.type }}
@@ -269,7 +247,6 @@ cat > ${CHART_PATH}/templates/NOTES.txt << EOL
 {{- end }}
 EOL
 
-# 更新 Chart.yaml
 cat > ${CHART_PATH}/Chart.yaml << EOL
 apiVersion: v2
 name: ${CHART_NAME}
@@ -279,7 +256,6 @@ version: 0.1.0
 appVersion: "1.0.0"
 EOL
 
-# 生成 .helmignore
 cat > ${CHART_PATH}/.helmignore << EOL
 # Patterns to ignore when building packages.
 *.tgz
@@ -290,7 +266,6 @@ cat > ${CHART_PATH}/.helmignore << EOL
 .vscode/
 EOL
 
-# 生成 mongodb-deployment.yaml
 cat > ${CHART_PATH}/templates/mongodb-deployment.yaml << EOL
 {{- if .Values.config.mongodb.enabled }}
 apiVersion: apps/v1
@@ -323,7 +298,6 @@ spec:
 {{- end }}
 EOL
 
-# 生成 redis-deployment.yaml
 cat > ${CHART_PATH}/templates/redis-deployment.yaml << EOL
 {{- if .Values.config.redis.enabled }}
 apiVersion: apps/v1
@@ -351,7 +325,6 @@ spec:
 {{- end }}
 EOL
 
-# 生成 merkle-deployment.yaml
 cat > ${CHART_PATH}/templates/merkle-deployment.yaml << EOL
 {{- if .Values.config.merkle.enabled }}
 apiVersion: apps/v1
@@ -389,7 +362,6 @@ spec:
 {{- end }}
 EOL
 
-# 生成 mongodb-pvc.yaml
 cat > ${CHART_PATH}/templates/mongodb-pvc.yaml << EOL
 {{- if and .Values.config.mongodb.enabled .Values.config.mongodb.persistence.enabled }}
 apiVersion: v1
@@ -410,7 +382,6 @@ spec:
 {{- end }}
 EOL
 
-# 生成 mongodb-service.yaml
 cat > ${CHART_PATH}/templates/mongodb-service.yaml << EOL
 apiVersion: v1
 kind: Service
@@ -428,7 +399,6 @@ spec:
     app: {{ include "${CHART_NAME}.fullname" . }}-mongodb
 EOL
 
-# 生成 merkle-service.yaml
 cat > ${CHART_PATH}/templates/merkle-service.yaml << EOL
 apiVersion: v1
 kind: Service
@@ -446,7 +416,6 @@ spec:
     app: {{ include "${CHART_NAME}.fullname" . }}-merkle
 EOL
 
-# 生成 redis-service.yaml
 cat > ${CHART_PATH}/templates/redis-service.yaml << EOL
 apiVersion: v1
 kind: Service
@@ -464,7 +433,6 @@ spec:
     app: {{ include "${CHART_NAME}.fullname" . }}-redis
 EOL
 
-# 生成 ingress.yaml
 cat > ${CHART_PATH}/templates/ingress.yaml << EOL
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -505,25 +473,27 @@ spec:
               number: {{ .Values.service.port }}
 EOL
 
-# 创建 ts 目录（如果不存在）
 mkdir -p ts
 
-# 生成 publish.sh 脚本
 cat > ts/publish.sh << EOL
 #!/bin/bash
 
 # 加载环境变量
 if [ -f .env ]; then
+  echo "Loading environment variables from .env file"
   source .env
+elif [ -f ../.env ]; then
+  echo "Loading environment variables from parent directory .env file"
+  source ../.env
+else
+  echo "No .env file found"
 fi
 
 node ./node_modules/zkwasm-service-cli/dist/index.js addimage -r "https://rpc.zkwasmhub.com:8090" -p "./node_modules/zkwasm-ts-server/src/application/application_bg.wasm" -u "\${USER_ADDRESS}" -x "\${USER_PRIVATE_ACCOUNT}" -d "Multi User App" -c 22 --auto_submit_network_ids ${CHAIN_ID} -n "${CHART_NAME}" --creator_only_add_prove_task true
 EOL
 
-# 使 publish.sh 可执行
 chmod +x ts/publish.sh
 
-# 使脚本可执行
 chmod +x scripts/generate-helm.sh
 
 echo "Helm chart generated successfully at ${CHART_PATH}"
