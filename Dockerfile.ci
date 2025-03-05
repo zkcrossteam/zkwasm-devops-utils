@@ -12,39 +12,6 @@ RUN cd ts && npm install && npx tsc
 # 复制预构建的 WASM 文件
 COPY build-artifacts/application/* ts/node_modules/zkwasm-ts-server/src/application/
 
-# Run publish script with retries (if needed)
-RUN if [ -f ts/publish.sh ]; then \
-      chmod +x ts/publish.sh && \
-      cd ts && \
-      for i in 1 2 3; do \
-        echo "----------------------------------------" && \
-        echo "Starting attempt $i to publish image..." && \
-        echo "Running: publish.sh" && \
-        echo "----------------------------------------" && \
-        output=$(./publish.sh 2>&1) && \
-        echo "Command output:" && \
-        echo "$output" && \
-        echo "----------------------------------------" && \
-        if echo "$output" | grep -q "already exists\|Add Image Response"; then \
-          echo "Successfully published image" && \
-          break; \
-        else \
-          if [ $i -eq 3 ]; then \
-            echo "Failed to publish image after 3 attempts" && \
-            echo "Last error output:" && \
-            echo "$output" && \
-            exit 1; \
-          fi; \
-          echo "Publish failed, retrying in 5 seconds..." && \
-          echo "Error output:" && \
-          echo "$output" && \
-          sleep 5; \
-        fi; \
-      done; \
-    else \
-      echo "Skipping image publishing (publish.sh not found)"; \
-    fi
-
 # Production stage
 FROM node:18-slim
 

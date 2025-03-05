@@ -2,6 +2,7 @@
 
 # 设置变量
 CHART_NAME="holdit-devops"
+CHAIN_ID="11155111" # 默认为Sepolia测试网
 ALLOWED_ORIGINS="*" # 多个域名用逗号分隔
 CHART_PATH="./helm-charts/${CHART_NAME}"
 DEPLOY_VALUE="true" 
@@ -204,6 +205,16 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: SERVER_ADMIN_KEY
+        - name: USER_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: USER_ADDRESS
+        - name: USER_PRIVATE_ACCOUNT
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: USER_PRIVATE_ACCOUNT
         - name: DEPLOY
           value: "{{ .Values.config.app.deploy | default "true" }}"
         - name: REMOTE
@@ -494,7 +505,26 @@ spec:
               number: {{ .Values.service.port }}
 EOL
 
+# 创建 ts 目录（如果不存在）
+mkdir -p ts
+
+# 生成 publish.sh 脚本
+cat > ts/publish.sh << EOL
+#!/bin/bash
+
+# 加载环境变量
+if [ -f .env ]; then
+  source .env
+fi
+
+node ./node_modules/zkwasm-service-cli/dist/index.js addimage -r "https://rpc.zkwasmhub.com:8090" -p "./node_modules/zkwasm-ts-server/src/application/application_bg.wasm" -u "\${USER_ADDRESS}" -x "\${USER_PRIVATE_ACCOUNT}" -d "Multi User App" -c 22 --auto_submit_network_ids ${CHAIN_ID} -n "${CHART_NAME}" --creator_only_add_prove_task true
+EOL
+
+# 使 publish.sh 可执行
+chmod +x ts/publish.sh
+
 # 使脚本可执行
 chmod +x scripts/generate-helm.sh
 
-echo "Helm chart generated successfully at ${CHART_PATH}" 
+echo "Helm chart generated successfully at ${CHART_PATH}"
+echo "Publish script generated at ts/publish.sh" 

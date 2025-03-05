@@ -35,6 +35,8 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
        
        # Example .env content:
        # SERVER_ADMIN_KEY=123
+       # USER_ADDRESS=0x0000000000000000000000000000000000000000
+       # USER_PRIVATE_ACCOUNT=0x0000000000000000000000000000000000000000
        ```
 
 2. **Modify the Makefile**
@@ -167,6 +169,8 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    kubectl create secret generic app-secrets \
    --from-literal=SETTLER_PRIVATE_ACCOUNT='settler-key-for-the-namespace' \
    --from-literal=SERVER_ADMIN_KEY='admin-key-for-the-namespace' \
+   --from-literal=USER_ADDRESS='user-address-for-the-namespace' \
+   --from-literal=USER_PRIVATE_ACCOUNT='user-private-key-for-the-namespace' \
    --namespace=YOUR_NAMESPACE
    ```
 
