@@ -1,19 +1,115 @@
 # zkwasm-devops-utils
 
-## Guide to Converting a zkWASM APP Project into a DevOps K8s Project
+## Overview
 
-This guide provides detailed steps to transform your zkWASM project into a DevOps Kubernetes project.
+This repository provides a comprehensive set of DevOps templates and utilities for zkWASM projects. It includes tools for Dockerization, GitHub Actions workflows for building and deployment, Helm chart generation, and more. These templates streamline the process of transforming a zkWASM project into a production-ready, Kubernetes-deployable application.
 
-### Prerequisites
+## Workflow Chart
+
+```mermaid
+graph TD
+    A[Developer Push to Main] -->|Triggers| B[GitHub Actions CI/CD]
+    B --> C[Build Docker Image]
+    B --> D[Generate WASM Binary]
+    C --> E[Publish Docker Image to GHCR]
+    D --> F[Publish WASM to zkWASMHub]
+    E --> G[Deploy to Kubernetes]
+    F --> G
+    G --> H[Application Running in K8s]
+    
+    subgraph "Local Development"
+    I[Local Setup] --> J[Copy Template Files]
+    J --> K[Configure GitHub Secrets]
+    K --> L[Test Build Locally]
+    L --> M[Push to GitHub]
+    end
+    
+    subgraph "Template Files"
+    N[Dockerfile.ci] 
+    O[GitHub Actions Workflow]
+    P[Helm Chart Generator]
+    Q[Publish Script]
+    end
+```
+
+## Repository Purpose
+
+This repository is designed to provide a set of templates and utilities that help zkWASM developers:
+
+1. **Dockerize** their applications with proper configuration
+2. Set up **GitHub Actions** for automated builds and deployments
+3. Generate **Helm charts** for Kubernetes deployment
+4. **Publish** WASM binaries to zkWASMHub
+5. **Streamline** the entire DevOps workflow
+
+**Important:** It is highly recommended to walk through the entire repository before applying these templates to your project. This will help you understand the workflow and customize it to your specific needs.
+
+## Prerequisites
 - Git installed
 - Access to the zkWASM APP Project GitHub repository with Actions enabled
 - Node.js and npm installed
 - Kubernetes cluster access (for deployment)
 - For other requirements, please refer to the [zkwasm development recipe](https://jupiterxiaoxiaoyu.github.io/zkwasm-development-recipe/getting-started/Setup%20Environment.html)
 
-### Local Setup
+## Getting Started
 
-**Note:** For steps 1-4 (adding configuration files, modifying Makefile, adding CI/CD workflow, and adding Dockerfile), please refer to the [Project Configuration Instructions](#project-configuration-instructions) section. You can simply copy all the necessary files from this repository to your zkWASM APP project.
+### Key Components
+
+#### 1. Dockerfile.ci
+
+The `Dockerfile.ci` provides a standardized way to dockerize your zkWASM project. Key features include:
+
+- Multi-stage build process for optimized image size
+- Automatic admin key generation (uses default key or custom key from GitHub secrets)
+- WASM binary optimization and packaging
+- Secure handling of sensitive environment variables
+- Publishing WASM binary to zkWASMHub during build process
+
+You can use this Dockerfile as-is or customize it for your specific project needs.
+
+#### 2. GitHub Actions Workflow
+
+The `.github/workflows/ci-cd.yml` file sets up a complete CI/CD pipeline that:
+
+- Builds your Docker image on every push to the main branch
+- Publishes the Docker image to GitHub Container Registry (GHCR)
+- Calculates and reports the MD5 hash of your WASM binary
+- Optionally deploys to Kubernetes (commented out by default)
+
+#### 3. Setup Script
+
+The `scripts/setup-github-cicd.sh` script helps you configure all necessary GitHub secrets and variables for your CI/CD pipeline. It guides you through setting up:
+
+- Server admin key
+- Settler private account
+- User address
+- Kubernetes configuration
+- Chain ID and other configuration parameters
+
+Run this script to quickly set up your project with the correct secrets and environment variables.
+
+#### 4. Helm Chart Generation
+
+The `scripts/generate-helm.sh` script automatically generates Helm charts for Kubernetes deployment with configurable parameters:
+
+- `CHART_NAME`: Name of your Helm chart (defaults to your GitHub repo name)
+- `ALLOWED_ORIGINS`: CORS settings with comma-separated domain names
+- `DEPLOY_VALUE`: Enable/disable task submission
+- `REMOTE_VALUE`: Enable/disable remote synchronization
+- `AUTO_SUBMIT_VALUE`: Configure auto submission
+- `IMAGE_VALUE`: MD5 hash of your WASM file (automatically calculated during the Docker build process)
+
+#### 5. Publish Script
+
+The `scripts/publish.sh` script provides a sophisticated way to publish your WASM binary to zkWASMHub. It:
+
+- Securely handles sensitive credentials
+- Configures chain ID and other parameters
+- Provides detailed logging and error handling
+
+### Project Configuration Instructions
+
+Follow these steps to apply the templates to your project:
 
 1. **Add Required Configuration Files**
    - In your repository, add the following files (Already provided in the repo):
@@ -24,7 +120,7 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
          - `DEPLOY_VALUE`: Set to `true` (default) to enable task submission
          - `REMOTE_VALUE`: Set to `true` (default) for remote synchronization
          - `AUTO_SUBMIT_VALUE`: Configure auto submission (optional)
-         - `IMAGE_VALUE`: MD5 hash of your WASM file, will be automatically updated by the Makefile
+         - `IMAGE_VALUE`: MD5 hash of your WASM file, automatically calculated during the Docker build process
          - Please leave the parameters as "" if you don't want to set them to "true"
 
      - **Environment Variables**
@@ -39,34 +135,10 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
        # USER_PRIVATE_ACCOUNT=0x0000000000000000000000000000000000000000
        ```
 
-2. **Modify the Makefile**
-   - Update your Makefile to include (Already provided in the repo):
-     - A build section that generates WASM files, calculates MD5 hashes, and copies artifacts to the build-artifacts directory
-     - Automatic updating of the `IMAGE_VALUE` in the Helm chart generation script
-   ```bash
-   # Edit the Makefile
-   nano Makefile
-   
-   # Example build section:
-   # build: ./src/admin.pubkey ./ts/src/service.js
-   #   wasm-pack build --release --out-name application --out-dir pkg
-   #   wasm-opt -Oz -o $(INSTALL_DIR)/application_bg.wasm pkg/application_bg.wasm
-   #   cp pkg/application_bg.wasm $(INSTALL_DIR)/application_bg.wasm
-   #   cd $(RUNNING_DIR) && npx tsc && cd -
-   #   echo "MD5:"
-   #   # Calculate MD5 and convert to uppercase
-   #   $(eval MD5_VALUE := $(shell md5sum $(INSTALL_DIR)/application_bg.wasm | awk '{print $$1}' | tr 'a-z' 'A-Z'))
-   #   echo "Calculated MD5: $(MD5_VALUE)"
-   #   # Create build artifacts directory
-   #   mkdir -p $(BUILD_ARTIFACTS_DIR)/application
-   #   # Copy necessary WASM files to build artifacts directory
-   #   cp $(INSTALL_DIR)/application_bg.wasm $(BUILD_ARTIFACTS_DIR)/application/
-   #   cp $(INSTALL_DIR)/application_bg.wasm.d.ts $(BUILD_ARTIFACTS_DIR)/application/
-   #   # Record MD5 to file
-   #   echo "$(MD5_VALUE)" > $(BUILD_ARTIFACTS_DIR)/wasm.md5
-   #   # Update IMAGE_VALUE in generate-helm.sh
-   #   sed -i 's/^IMAGE_VALUE=.*$$/IMAGE_VALUE="$(MD5_VALUE)"/' scripts/generate-helm.sh
-   ```
+2. **Note on MD5 Hash Generation**
+   - In our workflow, the MD5 hash of the WASM binary is automatically calculated during the Docker build process
+   - This hash is used as the `IMAGE_VALUE` in the Helm chart generation
+   - The CI/CD pipeline extracts this hash from the Docker container and reports it in the build summary
 
 3. **Add CI/CD Workflow**
    - Add a GitHub Actions workflow file at `.github/workflows/ci-cd.yml` (Already provided in the repo):
@@ -87,28 +159,9 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    nano Dockerfile.ci
    ```
 
-5. **Build TypeScript Components and WASM Files Locally**
-   ```bash
-   # Navigate to the TypeScript directory
-   cd ts
-   
-   # Install dependencies
-   npm install
-   
-   # Compile TypeScript
-   npx tsc
-   
-   # Return to the project root
-   cd ..
-   
-   # Build the WASM files, generate artifacts, and update Helm charts
-   make build
-   
-   # Verify the generated Helm chart
-   ls -la helm-charts/
-   ```
 
-6. **Test the Publish Script**
+
+5. **Test the Publish Script**
    - Test the publish script and fix any issues. Sometimes there might be errors when running without the `-n` flag.
    - If needed, modify `ts/publish.sh`.
    ```bash
@@ -122,7 +175,7 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    nano ts/publish.sh
    ```
 
-7. **Push to GitHub**
+6. **Push to GitHub**
    - Ensure your GitHub repository has Actions enabled.
    ```bash
    # Add all files to git
@@ -200,6 +253,97 @@ This guide provides detailed steps to transform your zkWASM project into a DevOp
    ```bash
    # Check the ingress status
    kubectl get ingress -n YOUR_NAMESPACE
+   ```
+
+## Automated Workflow
+
+Once you've set up your project with these templates, the following automated workflow will be enabled:
+
+1. **Trigger**: Any push to the main branch will trigger the GitHub Actions workflow.
+
+2. **Build Process**:
+   - The Docker image is built using `Dockerfile.ci`
+   - WASM binary is compiled and optimized
+   - MD5 hash of the WASM binary is calculated
+
+3. **Publishing**:
+   - Docker image is published to GitHub Container Registry (GHCR)
+   - WASM binary is published to zkWASMHub (if credentials are provided)
+
+4. **Deployment** (if enabled):
+   - Helm charts are generated with the correct configuration
+   - Application is deployed to Kubernetes
+
+All of this happens automatically without any manual intervention, streamlining your DevOps process.
+
+## Customization
+
+While these templates provide a solid foundation, you may need to customize them for your specific project:
+
+### Dockerfile Customization
+
+If your project has specific build requirements, you can modify the `Dockerfile.ci` to include additional dependencies or build steps. The key sections to consider customizing are:
+
+- System dependencies in the builder stage
+- Build process for your WASM binary
+- Environment variables and configuration
+
+### GitHub Actions Workflow Customization
+
+You can customize the `.github/workflows/ci-cd.yml` file to:
+
+- Add additional build steps
+- Modify the trigger conditions (e.g., specific branches or tags)
+- Add testing or validation steps
+- Enable or customize the deployment process
+
+### Helm Chart Customization
+
+The generated Helm charts can be customized by modifying the `scripts/generate-helm.sh` script or by directly editing the generated files in the `helm-charts` directory. Common customizations include:
+
+- Resource limits and requests
+- Additional environment variables
+- Service configurations
+- Ingress settings
+
+## Troubleshooting
+
+### Common Issues
+
+1. **GitHub Actions Workflow Fails**
+   - Check that all required secrets are set correctly
+   - Verify that your repository has the necessary permissions for GitHub Actions
+   - Check the workflow logs for specific error messages
+
+2. **Docker Build Fails**
+   - Ensure all dependencies are correctly specified
+   - Check that your WASM compilation process works locally
+   - Verify that the paths in the Dockerfile match your project structure
+
+3. **WASM Publishing Fails**
+   - Verify that `USER_ADDRESS` and `SETTLER_PRIVATE_ACCOUNT` are set correctly
+   - Check network connectivity to the zkWASMHub service
+   - Ensure your account has sufficient permissions
+
+4. **Kubernetes Deployment Issues**
+   - Verify that your Kubernetes configuration is correct
+   - Check that the namespace exists and has the necessary resources
+   - Ensure all required secrets are created in the namespace
+
+### Getting Help
+
+If you encounter issues not covered in this guide, please:
+
+1. Check the GitHub repository issues for similar problems
+2. Review the logs from GitHub Actions and Kubernetes for specific error messages
+3. Reach out to the zkWASM community for assistance
+
+## Conclusion
+
+This repository provides a comprehensive set of DevOps templates and utilities for zkWASM projects. By following the instructions and utilizing these templates, you can streamline your development workflow and focus on building your zkWASM application rather than setting up infrastructure.
+
+Remember to walk through the entire repository before applying these templates to your project to ensure you understand the workflow and can customize it to your specific needs.
+   kubectl get ingress -n YOUR_NAMESPACE
    
    # Test the service
    curl https://rpc.YOUR_NAMESPACE.zkwasm.ai/health
@@ -224,8 +368,7 @@ To adapt this setup for your zkWASM project:
   # REMOTE_VALUE="true"
   # AUTO_SUBMIT_VALUE=""
   
-  # The IMAGE_VALUE will be automatically updated by the Makefile
-  # when you run 'make build'
+  # The IMAGE_VALUE will be automatically calculated during the Docker build process
   ```
 - Update the `.env` file as needed for your project
   ```bash
